@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"html/template"
 	"io"
 	"log"
 	"log/slog"
@@ -58,9 +60,19 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		switch message.EventType() {
 		case HttpRequestMessageType:
 			httpRequestMessage, _ := message.(*HttpRequestMessage)
+			// build url from a template
+			t := template.Must(template.New("url").Parse(httpRequestMessage.URL))
+			var buf bytes.Buffer
+			err := t.Execute(&buf, httpRequestMessage.Variables)
+			if err != nil {
+				log.Println("Error executing template:", err)
+				conn.WriteMessage(websocket.TextMessage, []byte("Error executing template"))
+				continue
+			}
+
 			// send the http request
 			client := http.DefaultClient
-			req, err := http.NewRequest(httpRequestMessage.Method, httpRequestMessage.URL, nil)
+			req, err := http.NewRequest(httpRequestMessage.Method, buf.String(), nil)
 			if err != nil {
 				log.Println("Error creating request:", err)
 				conn.WriteMessage(websocket.TextMessage, []byte("Error creating request"))
@@ -73,7 +85,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 			resp, err := client.Do(req)
-			defer resp.Body.Close()
+			//defer resp.Body.Close()
 			if err != nil {
 				log.Println("Error sending request:", err)
 				conn.WriteMessage(websocket.TextMessage, []byte("Error sending request"))

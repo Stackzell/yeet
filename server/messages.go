@@ -41,10 +41,11 @@ type Message interface {
 
 // HttpRequestMessage is a message type for sending HTTP requests.
 type HttpRequestMessage struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Body    string            `json:"body,omitempty"`
+	Method    string                 `json:"method"`
+	URL       string                 `json:"url"`
+	Headers   map[string]string      `json:"headers"`
+	Body      string                 `json:"body,omitempty"`
+	Variables map[string]interface{} `json:"variables,omitempty"`
 }
 
 func (m *HttpRequestMessage) EventType() MessageType {

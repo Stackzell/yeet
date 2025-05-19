@@ -12,7 +12,10 @@ onMounted(() => {
 function handleClick() {
   send("http.request", {
     method: "GET",
-    url: "https://rickandmortyapi.com/api/character",
+    url: "{{ .baseUrl }}/api/character",
+    variables: {
+      baseUrl: "https://blah.com",
+    }
   });
 }
 </script>
