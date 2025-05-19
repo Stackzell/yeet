@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"html/template"
-	"io"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -16,8 +14,9 @@ import (
 var logger = slog.Default().With("component", "messages")
 
 type WebSocketEnvelope struct {
-	Type string          `json:"type"`
-	Data json.RawMessage `json:"data"`
+	CorrelationID string          `json:"correlationId"`
+	Type          string          `json:"type"`
+	Data          json.RawMessage `json:"data"`
 }
 
 var upgrader = websocket.Upgrader{
@@ -60,64 +59,30 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		switch message.EventType() {
 		case HttpRequestMessageType:
 			httpRequestMessage, _ := message.(*HttpRequestMessage)
-			// build url from a template
-			t := template.Must(template.New("url").Parse(httpRequestMessage.URL))
-			var buf bytes.Buffer
-			err := t.Execute(&buf, httpRequestMessage.Variables)
+
+			responseMessage, err := HandleHttpRequestMessage(httpRequestMessage)
 			if err != nil {
-				log.Println("Error executing template:", err)
-				conn.WriteMessage(websocket.TextMessage, []byte("Error executing template"))
+				log.Println("Error handling request:", err)
+				conn.WriteMessage(websocket.TextMessage, []byte(
+					fmt.Errorf("Error handling request: %w", err).Error(),
+				))
 				continue
 			}
 
-			// send the http request
-			client := http.DefaultClient
-			req, err := http.NewRequest(httpRequestMessage.Method, buf.String(), nil)
+			data, err := json.Marshal(responseMessage)
 			if err != nil {
-				log.Println("Error creating request:", err)
-				conn.WriteMessage(websocket.TextMessage, []byte("Error creating request"))
+				log.Println("Error marshalling response:", err)
+				conn.WriteMessage(websocket.TextMessage, []byte("Error marshalling response"))
 				continue
 			}
 
-			// set headers
-			for key, value := range httpRequestMessage.Headers {
-				req.Header.Set(key, value)
-			}
-
-			resp, err := client.Do(req)
-			//defer resp.Body.Close()
-			if err != nil {
-				log.Println("Error sending request:", err)
-				conn.WriteMessage(websocket.TextMessage, []byte("Error sending request"))
-				continue
-			}
-
-			responseMessage := &HttpResponseMessage{
-				Status: resp.StatusCode,
-				Body:   "",
-			}
-
-			if contentType := resp.Header.Get("Content-Type"); contentType != "" {
-				responseMessage.ContentType = contentType
-			}
-
-			if resp.Body != nil {
-				body, err := io.ReadAll(resp.Body)
-				responseMessage.Body = string(body)
-				responseMessage.ContentType = resp.Header.Get("Content-Type")
-
-				if err != nil {
-					log.Println("Error reading response body:", err)
-					conn.WriteMessage(websocket.TextMessage, []byte("Error reading response body"))
-					continue
-				}
-			}
-
-			responseData, _ := json.Marshal(responseMessage)
-			conn.WriteJSON(&WebSocketEnvelope{
+			envelope, err := json.Marshal(&WebSocketEnvelope{
 				Type: HttpResponseMessageType.String(),
-				Data: responseData,
+				Data: data,
 			})
+
+			conn.WriteMessage(websocket.TextMessage, envelope)
+			break
 		}
 	}
 }

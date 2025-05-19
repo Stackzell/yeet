@@ -12,8 +12,10 @@ func (t MessageType) String() string {
 }
 
 const (
-	HttpRequestMessageType  MessageType = "http.request"
-	HttpResponseMessageType MessageType = "http.response"
+	HttpRequestMessageType            MessageType = "http.request"
+	HttpResponseMessageType           MessageType = "http.response"
+	TemplateRenderRequestMessageType  MessageType = "template.render.request"
+	TemplateRenderResponseMessageType MessageType = "template.render.response"
 )
 
 var messageRegistry = map[MessageType]func() Message{
@@ -61,4 +63,9 @@ type HttpResponseMessage struct {
 
 func (m *HttpResponseMessage) EventType() MessageType {
 	return HttpResponseMessageType
+}
+
+type TemplateRenderMessage struct {
+	Template  string                 `json:"template"`
+	Variables map[string]interface{} `json:"variables,omitempty"`
 }
