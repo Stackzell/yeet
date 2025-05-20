@@ -14,13 +14,17 @@ func (t MessageType) String() string {
 const (
 	HttpRequestMessageType            MessageType = "http.request"
 	HttpResponseMessageType           MessageType = "http.response"
-	TemplateRenderRequestMessageType  MessageType = "template.render.request"
-	TemplateRenderResponseMessageType MessageType = "template.render.response"
+	RenderTemplateRequestMessageType  MessageType = "render.template.request"
+	RenderTemplateResponseMessageType MessageType = "render.template.response"
+	ErrorMessageType                  MessageType = "error"
 )
 
 var messageRegistry = map[MessageType]func() Message{
-	HttpRequestMessageType:  func() Message { return &HttpRequestMessage{} },
-	HttpResponseMessageType: func() Message { return &HttpResponseMessage{} },
+	HttpRequestMessageType:            func() Message { return &HttpRequestMessage{} },
+	HttpResponseMessageType:           func() Message { return &HttpResponseMessage{} },
+	RenderTemplateRequestMessageType:  func() Message { return &RenderTemplateRequestMessage{} },
+	RenderTemplateResponseMessageType: func() Message { return &RenderTemplateResponseMessage{} },
+	ErrorMessageType:                  func() Message { return &ErrorMessage{} },
 }
 
 func UnmarshalMessage(messageType MessageType, data []byte) (Message, error) {
@@ -65,7 +69,30 @@ func (m *HttpResponseMessage) EventType() MessageType {
 	return HttpResponseMessageType
 }
 
-type TemplateRenderMessage struct {
+// RenderTemplateRequestMessage is a message type for rendering templates.
+type RenderTemplateRequestMessage struct {
 	Template  string                 `json:"template"`
 	Variables map[string]interface{} `json:"variables,omitempty"`
+}
+
+func (m *RenderTemplateRequestMessage) EventType() MessageType {
+	return RenderTemplateRequestMessageType
+}
+
+// RenderTemplateResponseMessage is a message type for rendering template responses.
+type RenderTemplateResponseMessage struct {
+	Render string `json:"render"`
+}
+
+func (m *RenderTemplateResponseMessage) EventType() MessageType {
+	return RenderTemplateResponseMessageType
+}
+
+// ErrorMessage is a message type for sending error messages.
+type ErrorMessage struct {
+	Message string `json:"message"`
+}
+
+func (m *ErrorMessage) EventType() MessageType {
+	return ErrorMessageType
 }

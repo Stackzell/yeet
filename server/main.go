@@ -14,7 +14,7 @@ import (
 var logger = slog.Default().With("component", "messages")
 
 type WebSocketEnvelope struct {
-	CorrelationID string          `json:"correlationId"`
+	CorrelationID string          `json:"correlationId,omitempty"`
 	Type          string          `json:"type"`
 	Data          json.RawMessage `json:"data"`
 }
@@ -33,7 +33,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	defer conn.Close()
+	defer func(conn *websocket.Conn) {
+		_ = conn.Close()
+	}(conn)
 
 	for {
 		_, p, err := conn.ReadMessage()
@@ -45,45 +47,49 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		var envelope WebSocketEnvelope
 		if json.Unmarshal(p, &envelope) != nil {
 			logger.Error("Error unmarshalling message:", err)
-			conn.WriteMessage(websocket.TextMessage, []byte("Invalid message format"))
+			_ = conn.WriteMessage(websocket.TextMessage, []byte("Invalid message format"))
 			continue
 		}
 
 		message, err := UnmarshalMessage(MessageType(envelope.Type), envelope.Data)
 		if err != nil {
 			logger.Error("Error unmarshalling message:", err)
-			conn.WriteMessage(websocket.TextMessage, []byte("Invalid message type"))
+			_ = conn.WriteMessage(websocket.TextMessage, []byte("Invalid message type"))
 			continue
 		}
 
-		switch message.EventType() {
-		case HttpRequestMessageType:
-			httpRequestMessage, _ := message.(*HttpRequestMessage)
+		writer := NewResponseWriter(envelope.CorrelationID, conn)
+		go func() {
+			switch message.EventType() {
+			case HttpRequestMessageType:
+				httpRequestMessage, _ := message.(*HttpRequestMessage)
 
-			responseMessage, err := HandleHttpRequestMessage(httpRequestMessage)
-			if err != nil {
-				log.Println("Error handling request:", err)
-				conn.WriteMessage(websocket.TextMessage, []byte(
-					fmt.Errorf("Error handling request: %w", err).Error(),
-				))
-				continue
+				responseMessage, err := HandleHttpRequestMessage(httpRequestMessage)
+				if err != nil {
+					log.Println("Error handling request:", err)
+					writer.WriteErrorResponse(
+						fmt.Errorf("error handling request: %w", err),
+					)
+					return
+				}
+
+				writer.WriteJsonResponse(HttpResponseMessageType, responseMessage)
+				return
+			case RenderTemplateRequestMessageType:
+				renderTemplateRequestMessage, _ := message.(*RenderTemplateRequestMessage)
+				responseMessage, err := HandleTemplateRenderMessage(renderTemplateRequestMessage)
+				if err != nil {
+					log.Println("Error handling template render request:", err)
+					writer.WriteErrorResponse(
+						fmt.Errorf("error handling template render request: %w", err),
+					)
+					return
+				}
+
+				writer.WriteJsonResponse(RenderTemplateResponseMessageType, responseMessage)
+				return
 			}
-
-			data, err := json.Marshal(responseMessage)
-			if err != nil {
-				log.Println("Error marshalling response:", err)
-				conn.WriteMessage(websocket.TextMessage, []byte("Error marshalling response"))
-				continue
-			}
-
-			envelope, err := json.Marshal(&WebSocketEnvelope{
-				Type: HttpResponseMessageType.String(),
-				Data: data,
-			})
-
-			conn.WriteMessage(websocket.TextMessage, envelope)
-			break
-		}
+		}()
 	}
 }
 

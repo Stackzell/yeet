@@ -29,10 +29,11 @@ func HandleHttpRequestMessage(m *HttpRequestMessage) (*HttpResponseMessage, erro
 	}
 
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
+
+	defer resp.Body.Close()
 
 	responseMessage := &HttpResponseMessage{
 		Status: resp.StatusCode,
@@ -56,4 +57,19 @@ func HandleHttpRequestMessage(m *HttpRequestMessage) (*HttpResponseMessage, erro
 	return responseMessage, nil
 }
 
-func HandleTemplateRenderMessage()
+func HandleTemplateRenderMessage(m *RenderTemplateRequestMessage) (*RenderTemplateResponseMessage, error) {
+	tmpl, err := template.New(m.Template).Parse(m.Template)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	err = tmpl.Execute(&buf, m.Variables)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RenderTemplateResponseMessage{
+		Render: buf.String(),
+	}, nil
+}

@@ -9,12 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@monaco-editor/loader": "^1.5.0",
     "@tailwindcss/vite": "^4.1.7",
     "@tanstack/vue-query": "^5.76.0",
     "@types/node": "^22.15.18",
+    "@vueuse/core": "^13.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-vue-next": "^0.511.0",
+    "monaco-editor": "^0.52.2",
     "reka-ui": "^2.2.1",
     "tailwind-merge": "^3.3.0",
     "tailwindcss": "^4.1.7",
