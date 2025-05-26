@@ -8,17 +8,9 @@ import (
 )
 
 func HandleHttpRequestMessage(m *HttpRequestMessage) (*HttpResponseMessage, error) {
-	// build url from a template
-	t := template.Must(template.New("url").Parse(m.URL))
-	var buf bytes.Buffer
-	err := t.Execute(&buf, m.Variables)
-	if err != nil {
-		return nil, err
-	}
-
 	// send the http request
 	client := http.DefaultClient
-	req, err := http.NewRequest(m.Method, buf.String(), nil)
+	req, err := http.NewRequest(m.Method, m.URL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +25,9 @@ func HandleHttpRequestMessage(m *HttpRequestMessage) (*HttpResponseMessage, erro
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 
 	responseMessage := &HttpResponseMessage{
 		Status: resp.StatusCode,

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -11,7 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var logger = slog.Default().With("component", "messages")
+var logger = slog.Default()
 
 type WebSocketEnvelope struct {
 	CorrelationID string          `json:"correlationId,omitempty"`
@@ -30,7 +29,7 @@ var upgrader = websocket.Upgrader{
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		logger.Error("Error upgrading connection:", err)
 		return
 	}
 	defer func(conn *websocket.Conn) {
@@ -40,7 +39,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, p, err := conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			logger.Error("Error reading message:", err)
 			continue
 		}
 
@@ -66,7 +65,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 				responseMessage, err := HandleHttpRequestMessage(httpRequestMessage)
 				if err != nil {
-					log.Println("Error handling request:", err)
+					logger.Error("Error handling request:", err)
 					writer.WriteErrorResponse(
 						fmt.Errorf("error handling request: %w", err),
 					)
@@ -79,7 +78,7 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				renderTemplateRequestMessage, _ := message.(*RenderTemplateRequestMessage)
 				responseMessage, err := HandleTemplateRenderMessage(renderTemplateRequestMessage)
 				if err != nil {
-					log.Println("Error handling template render request:", err)
+					logger.Error("Error handling template render request:", err)
 					writer.WriteErrorResponse(
 						fmt.Errorf("error handling template render request: %w", err),
 					)
@@ -103,5 +102,8 @@ func main() {
 	})
 
 	// Start the server
-	http.ListenAndServe(":8080", r)
+	logger.Info("Starting server on :8080")
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		logger.Error("Error starting server:", err)
+	}
 }

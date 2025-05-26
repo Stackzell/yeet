@@ -1,18 +1,18 @@
 <template>
-  <div ref="editorContainer" class="editor-container"></div>
+  <div ref="editorContainer" class="h-full"></div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
-import loader from '@monaco-editor/loader';
+import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import loader from "@monaco-editor/loader";
 
 const props = defineProps({
   modelValue: {
     type: String,
-    required: true
-  }
+    required: true,
+  },
 });
-const emit = defineEmits(['update:modelValue']);
+const emit = defineEmits(["update:modelValue"]);
 
 const editorContainer = ref(null);
 let editorInstance;
@@ -23,8 +23,8 @@ onMounted(async () => {
 
   editorInstance = monacoRef.editor.create(editorContainer.value, {
     value: formatJson(props.modelValue),
-    language: 'json',
-    theme: 'vs-dark',
+    language: "json",
+    theme: "vs-dark",
     automaticLayout: true,
   });
 
@@ -34,17 +34,20 @@ onMounted(async () => {
   editorInstance.onDidChangeModelContent(() => {
     const newValue = editorInstance.getValue();
     if (newValue !== props.modelValue) {
-      emit('update:modelValue', newValue);
+      emit("update:modelValue", newValue);
     }
   });
 });
 
-watch(() => props.modelValue, async (newValue) => {
-  if (editorInstance && editorInstance.getValue() !== newValue) {
-    editorInstance.setValue(formatJson(newValue));
-    await formatDocument();
+watch(
+  () => props.modelValue,
+  async (newValue) => {
+    if (editorInstance && editorInstance.getValue() !== newValue) {
+      editorInstance.setValue(formatJson(newValue));
+      await formatDocument();
+    }
   }
-});
+);
 
 onBeforeUnmount(() => {
   if (editorInstance) {
@@ -65,10 +68,10 @@ async function formatDocument() {
 
   await monacoRef.languages.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
-    allowComments: true
+    allowComments: true,
   });
 
-  await editorInstance.getAction('editor.action.formatDocument')?.run();
+  await editorInstance.getAction("editor.action.formatDocument")?.run();
 }
 </script>
 
